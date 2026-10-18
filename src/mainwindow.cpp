@@ -99,6 +99,9 @@ MainWindow::MainWindow()
     }
 
     QString backPath = getConfigPath( "backup.sim2" );
+    // Remote control (-remote): never block startup with the crash-recovery dialog
+    if( QFile::exists( backPath ) && QCoreApplication::arguments().contains("-remote") )
+        QFile::remove( backPath );
     if( QFile::exists( backPath ) )
     {
         QMessageBox msgBox;
