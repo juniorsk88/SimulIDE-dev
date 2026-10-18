@@ -274,14 +274,23 @@ QJsonObject RemoteControl::handle( const QJsonObject &c )
         }
         if( c.value("maximize").toBool() ) MainWindow::self()->showMaximized();
         QApplication::processEvents();
-        if( c.value("fit").toBool( true ) ) CircuitView::self()->zoomToFit();
+        if( c.value("fit").toBool( false ) ) CircuitView::self()->zoomToFit();
+        if( c.contains("zoom") ) {   // absolute zoom factor (1 = 100%); small views keep the simulation fast
+            double z = c.value("zoom").toDouble( 1.0 );
+            CircuitView::self()->setTransform( QTransform::fromScale( z, z ) );
+        }
         QApplication::processEvents();
     }
     else if( cmd == "screenshot" ) {   // {"path":..,"fit":true,"area":"window"|"circuit"}
         QString path = c.value("path").toString();
-        if( c.value("fit").toBool( false ) ) { CircuitView::self()->zoomToFit(); QApplication::processEvents(); }
-        QPixmap px = ( c.value("area").toString() == "circuit" ) ? CircuitView::self()->grab()
+        CircuitView* cv = CircuitView::self();
+        QTransform tr = cv->transform();               // fit only for the picture, then restore the zoom:
+        QPointF center = cv->mapToScene( cv->viewport()->rect().center() ); // a fully zoomed-out view repaints
+        bool fit = c.value("fit").toBool( false );      // every board image each frame and slows the simulation
+        if( fit ) { cv->zoomToFit(); QApplication::processEvents(); }
+        QPixmap px = ( c.value("area").toString() == "circuit" ) ? cv->grab()
                                                                   : MainWindow::self()->grab();
+        if( fit && !c.value("keep").toBool( false ) ) { cv->setTransform( tr ); cv->centerOn( center ); }
         bool ok = px.save( path );
         r["ok"] = ok; r["path"] = path; r["w"] = px.width(); r["h"] = px.height();
     }
