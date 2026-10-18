@@ -16,7 +16,9 @@
  *   {"cmd":"ramp","id":"..","prop":"..","from":x,"to":y,"rate":r}         *
  *        r = units per simulated second                                   *
  *   {"cmd":"ramp_stop","id":"..","prop":".."}                             *
- *   {"cmd":"screenshot","path":"..png"}  {"cmd":"quit"}                   *
+ *   {"cmd":"screenshot","path":"..png","fit":true,"area":"circuit"}     *
+ *   {"cmd":"view","editor":false,"panel":false,"fit":true,"maximize":1} *
+ *   {"cmd":"quit"}                                                      *
  ***( see copyright.txt file at root folder )*******************************/
 
 #include <QTcpServer>
@@ -29,6 +31,9 @@
 
 #include "remotecontrol.h"
 #include "mainwindow.h"
+#include "circuitview.h"
+#include <QTabWidget>
+#include <QPixmap>
 #include "circuitwidget.h"
 #include "circuit.h"
 #include "component.h"
@@ -257,10 +262,28 @@ QJsonObject RemoteControl::handle( const QJsonObject &c )
     else if( cmd == "ramp_stop" ) {
         m_ramps.remove( c.value("id").toString()+"/"+c.value("prop").toString() );
     }
-    else if( cmd == "screenshot" ) {
+    else if( cmd == "view" ) {   // {"editor":false,"panel":false,"fit":true,"maximize":true}
+        for( QWidget* w : MainWindow::self()->findChildren<QWidget*>() ) {
+            QString cn = w->metaObject()->className();
+            if( c.contains("editor") && cn == "EditorWindow" ) w->setVisible( c.value("editor").toBool() );
+        }
+        if( c.contains("panel") ) {
+            for( QTabWidget* t : MainWindow::self()->findChildren<QTabWidget*>() )
+                if( t->parentWidget() && QString( t->parentWidget()->metaObject()->className() ) == "QSplitter" )
+                { t->setVisible( c.value("panel").toBool() ); break; }
+        }
+        if( c.value("maximize").toBool() ) MainWindow::self()->showMaximized();
+        QApplication::processEvents();
+        if( c.value("fit").toBool( true ) ) CircuitView::self()->zoomToFit();
+        QApplication::processEvents();
+    }
+    else if( cmd == "screenshot" ) {   // {"path":..,"fit":true,"area":"window"|"circuit"}
         QString path = c.value("path").toString();
-        bool ok = MainWindow::self()->grab().save( path );
-        r["ok"] = ok; r["path"] = path;
+        if( c.value("fit").toBool( false ) ) { CircuitView::self()->zoomToFit(); QApplication::processEvents(); }
+        QPixmap px = ( c.value("area").toString() == "circuit" ) ? CircuitView::self()->grab()
+                                                                  : MainWindow::self()->grab();
+        bool ok = px.save( path );
+        r["ok"] = ok; r["path"] = path; r["w"] = px.width(); r["h"] = px.height();
     }
     else if( cmd == "quit" ) {
         CircuitWidget::self()->powerCircOff();
