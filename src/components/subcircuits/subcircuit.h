@@ -20,6 +20,7 @@ class SubCircuit : public Chip
     };
 
     public:
+        QList<Component*>* innerComps() { return &m_compList; } // Used by RemoteControl
         SubCircuit( QString type, QString id, QString device );
         ~SubCircuit();
 
@@ -54,8 +55,6 @@ class SubCircuit : public Chip
 
         virtual Pin* updatePin( QString id, QString type, QString label,
                                 int xpos, int ypos, int angle, int length=8, double space=0 ) override;
-
-        QList<Component*>* innerComps() { return &m_compList; } // Used by RemoteControl
 
         QMap<QString, Component*> m_mainComponents;
  static QString s_subcDir;      // Subcircuit Path
