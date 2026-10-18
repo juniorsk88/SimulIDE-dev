@@ -23,6 +23,7 @@
 
 #include "stringprop.h"
 #include "boolprop.h"
+#include "intprop.h"
 
 #define tr(str) simulideTr("Esp32",str)
 
@@ -92,6 +93,16 @@ Esp32::Esp32( QString type, QString id, QString device )
     addPropGroup( { tr("Boot"),{
         new BoolProp<Esp32>("Strap_Pins", tr("Read strapping pins at boot"),""
                               , this, &Esp32::strapPins, &Esp32::setStrapPins )
+    }, 0 } );
+
+    addPropGroup( { tr("Remote"),{
+        // UART0 also on a local TCP socket (QEMU chardev): bytes written there reach the firmware
+        // through QEMU's UART model (RX FIFO + interrupt), and the firmware output is sent back.
+        new IntProp<Esp32>("Serial_Port", tr("UART0 TCP port (127.0.0.1, 0=off)"),""
+                              , this, &Esp32::serialPort, &Esp32::setSerialPort,0,"uint" ),
+        // WiFi (QEMU esp32_wifi user net): forward 127.0.0.1:port -> ESP32 192.168.4.15:80
+        new IntProp<Esp32>("Http_Port", tr("WiFi HTTP fwd port (0=off)"),""
+                              , this, &Esp32::httpPort, &Esp32::setHttpPort,0,"uint" ),
     }, 0 } );
 }
 Esp32::~Esp32(){}
@@ -168,7 +179,14 @@ bool Esp32::createArgs()
     m_arguments << "driver=nvram.esp32.efuse,property=drive,value=efuse";
 
     m_arguments << "-nic";
-    m_arguments << "user,model=esp32_wifi,id=u1,net=192.168.4.0/24";
+    QString nic = "user,model=esp32_wifi,id=u1,net=192.168.4.0/24";
+    if( m_httpPort > 0 ) nic += ",hostfwd=tcp:127.0.0.1:"+QString::number( m_httpPort )+"-192.168.4.15:80";
+    m_arguments << nic;
+
+    if( m_serialPort > 0 ){
+        m_arguments << "-serial";
+        m_arguments << "tcp:127.0.0.1:"+QString::number( m_serialPort )+",server=on,wait=off";
+    }
 
     if( !m_extraAP.isEmpty() ){
         m_arguments << "-wifi-ap";
