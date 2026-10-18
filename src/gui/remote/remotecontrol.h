@@ -14,6 +14,7 @@
 
 class QTcpServer;
 class QTcpSocket;
+class Component;
 
 class RemoteControl : public QObject
 {
@@ -39,6 +40,7 @@ class RemoteControl : public QObject
             double value;
         };
         double simTimeS();
+        Component* findComponent( QString id );
 
         QTcpServer* m_server;
         QTimer m_rampTimer;

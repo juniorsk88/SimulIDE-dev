@@ -10,7 +10,9 @@
  *   {"cmd":"get","id":"..","prop":".."}                                   *
  *   {"cmd":"set","id":"..","prop":"..","value":".."}                      *
  *   {"cmd":"probe","id":".."}  (Probe component voltage)                  *
+ *   ids: "Comp-1" or "Board-1/InnerComp" (component inside subcircuit)    *
  *   {"cmd":"serial","id":"..","clear":true}  (text received by SerialTerm)*
+ *   {"cmd":"serial_send","id":"..","text":"LIGA\n"}  (send to the MCU)   *
  *   {"cmd":"ramp","id":"..","prop":"..","from":x,"to":y,"rate":r}         *
  *        r = units per simulated second                                   *
  *   {"cmd":"ramp_stop","id":"..","prop":".."}                             *
@@ -23,6 +25,7 @@
 #include <QJsonArray>
 #include <QApplication>
 #include <QFileInfo>
+#include <cmath>
 
 #include "remotecontrol.h"
 #include "mainwindow.h"
@@ -32,6 +35,8 @@
 #include "comproperty.h"
 #include "simulator.h"
 #include "probe.h"
+#include "subcircuit.h"
+#include "serialterm.h"
 
 RemoteControl* RemoteControl::m_pSelf = nullptr;
 QMutex RemoteControl::m_serialMutex;
@@ -97,6 +102,21 @@ void RemoteControl::readClient()
     }
 }
 
+// "id" = top-level component; "subcId/innerId" = component inside a subcircuit/board
+Component* RemoteControl::findComponent( QString id )
+{
+    Circuit* circ = Circuit::self();
+    if( !circ ) return nullptr;
+    if( !id.contains('/') ) return circ->getCompById( id );
+    QString subId = id.section('/', 0, 0 );
+    QString inner = id.section('/', 1 );
+    SubCircuit* subc = dynamic_cast<SubCircuit*>( circ->getCompById( subId ) );
+    if( !subc ) return nullptr;
+    for( Component* c : *subc->innerComps() )
+        if( c->getUid().section('@', -1 ) == inner || c->idLabel() == inner ) return c;
+    return nullptr;
+}
+
 double RemoteControl::simTimeS()
 {
     if( !Simulator::self() ) return 0;
@@ -114,9 +134,7 @@ QJsonObject RemoteControl::handle( const QJsonObject &c )
     QJsonObject r; r["ok"] = true; r["cmd"] = cmd;
 
     Circuit* circ = Circuit::self();
-    auto findComp = [&]( QString id )->Component* {
-        return circ ? circ->getCompById( id ) : nullptr;
-    };
+    auto findComp = [&]( QString id )->Component* { return findComponent( id ); };
 
     if( cmd == "ping" ) {
         r["version"] = QApplication::applicationVersion();
@@ -159,6 +177,13 @@ QJsonObject RemoteControl::handle( const QJsonObject &c )
         if( circ ) for( Component* comp : *circ->compList() ) {
             QJsonObject o; o["id"] = comp->getUid(); o["type"] = comp->itemType();
             o["label"] = comp->idLabel();
+            if( SubCircuit* sc = dynamic_cast<SubCircuit*>( comp ) ) {
+                QJsonArray in;
+                for( Component* c : *sc->innerComps() )
+                    if( c->itemType() != "Tunnel" && c->itemType() != "Node" )
+                        in.append( comp->getUid()+"/"+c->getUid().section('@', -1 ) );
+                o["inner"] = in;
+            }
             a.append( o );
         }
         r["components"] = a;
@@ -205,6 +230,11 @@ QJsonObject RemoteControl::handle( const QJsonObject &c )
             if( id.isEmpty() ) m_serial.clear(); else m_serial.remove( id );
         }
     }
+    else if( cmd == "serial_send" ) {   // send text to the MCU through a SerialTerm (like typing in its terminal)
+        SerialTerm* st = dynamic_cast<SerialTerm*>( findComp( c.value("id").toString() ) );
+        if( !st ) return fail("SerialTerm not found");
+        st->sendByteArray( c.value("text").toString().toLatin1() );
+    }
     else if( cmd == "ramp" ) {
         Ramp rp;
         rp.id = c.value("id").toString();
@@ -248,7 +278,7 @@ void RemoteControl::rampTick()
     for( auto it = m_ramps.begin(); it != m_ramps.end(); ++it )
     {
         Ramp &rp = it.value();
-        Component* comp = Circuit::self()->getCompById( rp.id );
+        Component* comp = findComponent( rp.id );
         if( !comp ) { done.append( it.key() ); continue; }
         double dir = (rp.to >= rp.from) ? 1 : -1;
         double v = rp.from + dir*rp.ratePerS*( now-rp.startSimS );
