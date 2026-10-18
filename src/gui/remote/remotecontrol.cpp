@@ -237,6 +237,7 @@ QJsonObject RemoteControl::handle( const QJsonObject &c )
         if( id.isEmpty() ) { for( QByteArray &b : m_serial ) data += b; }
         else data = m_serial.value( id );
         r["text"] = QString::fromLatin1( data );
+        r["keys"] = QJsonArray::fromStringList( m_serial.keys() );
         if( c.value("clear").toBool() ) {
             if( id.isEmpty() ) m_serial.clear(); else m_serial.remove( id );
         }

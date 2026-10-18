@@ -40,6 +40,7 @@ void TransModule::printOut( uint8_t data )
 
 void TransModule::printIn( uint8_t data )
 {
+    RemoteControl::serialByte( "uartin:"+m_moduleName, data ); // remote control: bytes received by the module
     if( m_monitor ) m_monitor->printIn( data );
 }
 
