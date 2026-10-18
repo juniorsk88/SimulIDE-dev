@@ -61,6 +61,7 @@ RemoteControl::RemoteControl( quint16 port, QObject* parent )
 
 void RemoteControl::serialByte( const QString &compId, uint8_t byte )
 {
+    if( !m_pSelf ) return;   // remote control not enabled
     QMutexLocker lock( &m_serialMutex );
     QByteArray &buf = m_serial[compId];
     buf.append( (char)byte );

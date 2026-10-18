@@ -6,6 +6,7 @@
 #include "transmodule.h"
 #include "circuitwidget.h"
 #include "serialmon.h"
+#include "remotecontrol.h"
 
 TransModule::TransModule( QString name )
 {
@@ -33,6 +34,7 @@ void TransModule::closeMonitor()
 
 void TransModule::printOut( uint8_t data )
 {
+    RemoteControl::serialByte( "uart:"+m_moduleName, data ); // remote control: bytes sent by the MCU
     if( m_monitor ) m_monitor->printOut( data );
 }
 
