@@ -26,6 +26,9 @@ class Esp32 : public QemuDevice
         QString extraAP()  { return m_extraAP; }
         void setExtraAP( QString a ){ m_extraAP = a; }
 
+        bool strapPins() { return m_strapPins; }
+        void setStrapPins( bool s ){ m_strapPins = s; }
+
     protected:
         Pin* addPin( QString id, QString type, QString label,
                     int n, int x, int y, int angle, int length=8, double space=0 ) override;
@@ -38,6 +41,7 @@ class Esp32 : public QemuDevice
 
         QString m_extraAP;
         int     m_extraCh;
+        bool    m_strapPins;
 
         uint32_t m_cpuFreq;
         uint32_t m_apbFreq;

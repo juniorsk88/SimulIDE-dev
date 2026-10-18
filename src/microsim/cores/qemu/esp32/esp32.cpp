@@ -22,6 +22,7 @@
 #include "utils.h"
 
 #include "stringprop.h"
+#include "boolprop.h"
 
 #define tr(str) simulideTr("Esp32",str)
 
@@ -39,6 +40,7 @@ Esp32::Esp32( QString type, QString id, QString device )
     m_firmware   = "";
 
     m_extraCh = 6;
+    m_strapPins = false;
 
     m_ioMem.resize( IOMEM_SIZE, 0 );
     m_ioMemStart = IOMEM_BASE;
@@ -85,6 +87,11 @@ Esp32::Esp32( QString type, QString id, QString device )
                               , this, &Esp32::extraAP, &Esp32::setExtraAP )
 
 
+    }, 0 } );
+
+    addPropGroup( { tr("Boot"),{
+        new BoolProp<Esp32>("Strap_Pins", tr("Read strapping pins at boot"),""
+                              , this, &Esp32::strapPins, &Esp32::setStrapPins )
     }, 0 } );
 }
 Esp32::~Esp32(){}
@@ -170,8 +177,10 @@ bool Esp32::createArgs()
     m_arguments << "-global";
     m_arguments << "driver=timer.esp32.timg,property=wdt_disable,value=true";
 
-    m_arguments << "-global";
-    m_arguments << "driver=esp32.gpio,property=strap_mode,value=0x"+QString::number( strapMode, 16 );
+    if( m_strapPins ){ // Opt-in: otherwise QEMU uses its default (normal SPI flash boot)
+        m_arguments << "-global";
+        m_arguments << "driver=esp32.gpio,property=strap_mode,value=0x"+QString::number( strapMode, 16 );
+    }
     m_arguments << "-icount";
     m_arguments <<"shift=4,align=off,sleep=off";
 
