@@ -16,6 +16,10 @@
  *   {"cmd":"ramp","id":"..","prop":"..","from":x,"to":y,"rate":r}         *
  *        r = units per simulated second                                   *
  *   {"cmd":"ramp_stop","id":"..","prop":".."}                             *
+ *   {"cmd":"press","id":"..","ms":300} push button: press, release after  *
+ *        ms of simulated time (ms<=0: hold; {"release":true} releases)    *
+ *   NOTE: ESP32 (QEMU) UART RX is not implemented upstream: serial_send  *
+ *        reaches the pins but the firmware never receives the bytes.     *
  *   {"cmd":"screenshot","path":"..png","fit":true,"area":"circuit"}     *
  *   {"cmd":"view","editor":false,"panel":false,"fit":true,"maximize":1} *
  *   {"cmd":"quit"}                                                      *
@@ -42,6 +46,7 @@
 #include "probe.h"
 #include "subcircuit.h"
 #include "serialterm.h"
+#include "push_base.h"
 
 RemoteControl* RemoteControl::m_pSelf = nullptr;
 QMutex RemoteControl::m_serialMutex;
@@ -259,6 +264,21 @@ QJsonObject RemoteControl::handle( const QJsonObject &c )
         if( !m_rampTimer.isActive() ) m_rampTimer.start();
         r["id"] = rp.id; r["from"] = rp.from; r["to"] = rp.to; r["rate"] = rp.ratePerS;
     }
+    else if( cmd == "press" ) {   // push button (Push / PushBase), released after "ms" of simulated time
+        QString id = c.value("id").toString();
+        PushBase* pb = dynamic_cast<PushBase*>( findComp( id ) );
+        if( !pb ) return fail("push button not found: "+id );
+        if( c.value("release").toBool() ) { pb->onbuttonReleased(); m_presses.remove( id ); }
+        else {
+            pb->onbuttonPressed();
+            double ms = c.value("ms").toDouble( 300 );
+            if( ms > 0 ) {
+                m_presses[id] = simTimeS() + ms/1000.0;
+                if( !m_rampTimer.isActive() ) m_rampTimer.start();
+            }
+        }
+        r["id"] = id;
+    }
     else if( cmd == "ramp_stop" ) {
         m_ramps.remove( c.value("id").toString()+"/"+c.value("prop").toString() );
     }
@@ -304,9 +324,16 @@ QJsonObject RemoteControl::handle( const QJsonObject &c )
 
 void RemoteControl::rampTick()
 {
-    if( m_ramps.isEmpty() ) { m_rampTimer.stop(); return; }
+    if( m_ramps.isEmpty() && m_presses.isEmpty() ) { m_rampTimer.stop(); return; }
     if( !Simulator::self()->isRunning() || Simulator::self()->isPaused() ) return;
     double now = simTimeS();
+    QStringList rel;
+    for( auto it = m_presses.begin(); it != m_presses.end(); ++it )
+        if( now >= it.value() ) rel.append( it.key() );
+    for( QString id : rel ) {
+        m_presses.remove( id );
+        if( PushBase* pb = dynamic_cast<PushBase*>( findComponent( id ) ) ) pb->onbuttonReleased();
+    }
     QStringList done;
     for( auto it = m_ramps.begin(); it != m_ramps.end(); ++it )
     {

@@ -45,6 +45,7 @@ class RemoteControl : public QObject
         QTcpServer* m_server;
         QTimer m_rampTimer;
         QHash<QString, Ramp> m_ramps; // key: id/prop
+        QHash<QString, double> m_presses; // push button id -> release time (sim s)
 
  static RemoteControl* m_pSelf;
  static QMutex m_serialMutex;
