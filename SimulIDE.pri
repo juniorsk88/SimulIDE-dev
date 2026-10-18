@@ -11,6 +11,7 @@ QT += widgets
 QT += concurrent
 QT += serialport
 QT += multimedia widgets
+QT += network
 
 SOURCES      = $$files( $$PWD/src/*.cpp, true )
 HEADERS      = $$files( $$PWD/src/*.h, true )
@@ -52,6 +53,7 @@ INCLUDEPATH += $$PWD/src \
     $$PWD/src/gui/properties \
     $$PWD/src/gui/serial \
     $$PWD/src/gui/testing \
+    $$PWD/src/gui/remote \
     $$PWD/src/simulator \
     $$PWD/src/simulator/elements \
     $$PWD/src/simulator/elements/active \

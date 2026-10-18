@@ -8,6 +8,7 @@
 #include <QMenu>
 
 #include "serialterm.h"
+#include "remotecontrol.h"
 #include "serialmon.h"
 #include "terminal.h"
 #include "itemlibrary.h"
@@ -156,6 +157,7 @@ void SerialTerm::byteReceived( uint8_t byte )
 {
     m_receiver->getData();
     printIn( byte );
+    RemoteControl::serialByte( m_id, byte );
     m_terminal->received( byte );
     m_receiving = true;
 }

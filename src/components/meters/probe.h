@@ -29,6 +29,7 @@ class Probe : public Component, public eElement
         void setSmall( bool s );
         bool isSmall() { return m_small; }
 
+        double voltIn() { return m_voltIn; }
         double threshold() { return m_voltTrig; }
         void setThreshold( double t ) { m_voltTrig = t; }
 

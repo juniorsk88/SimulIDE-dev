@@ -12,6 +12,7 @@
 #include "circuitwidget.h"
 #include "editorwindow.h"
 #include "batchtest.h"
+#include "remotecontrol.h"
 
 void myMessageOutput( QtMsgType type, const QMessageLogContext &context, const QString &msg )
 {
@@ -89,7 +90,17 @@ int main( int argc, char *argv[] )
     {
         QString arg = QString::fromStdString( argv[i] );
 
-        if( arg == "-nogui")
+        if( arg == "-remote")  // Local remote-control server (TCP/JSON on 127.0.0.1)
+        {
+            quint16 port = 5550;
+            if( i+1 < argc ){
+                bool ok = false;
+                int p = QString::fromStdString( argv[i+1] ).toInt( &ok );
+                if( ok && p > 0 && p < 65536 ){ port = p; i++; }
+            }
+            new RemoteControl( port, &app );
+        }
+        else if( arg == "-nogui")
         {
             window.hideGui();
             noGui = true;

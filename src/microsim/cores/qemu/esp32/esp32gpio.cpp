@@ -156,9 +156,9 @@ uint32_t Esp32Gpio::readPort( int in )
             if( pin && pin->getInpState() ) data |= (1 << i);
         }
     }else{
-        for( uint8_t i=33; i<40; ++i ){
+        for( uint8_t i=32; i<40; ++i ){   // GPIO_IN1_REG bit0 = GPIO32
             IoPin* pin =  m_espPad[i];
-            if( pin && pin->getInpState() ) data |= (1 << (i-33));
+            if( pin && pin->getInpState() ) data |= (1 << (i-32));
         }
     }
     return data;
@@ -196,7 +196,7 @@ void Esp32Gpio::setGpioDir( uint32_t newEnable )
         uint32_t mask = 1<<i;
         if( changed & mask )
         {
-            if( newEnable ) pin->setPinMode( output );
+            if( newEnable & mask ) pin->setPinMode( output ); // was: newEnable (any output bit set)
             else            pin->setPinMode( input );
             //qDebug() << "Esp32Gpio::setGpioDir" << i << newEnable;
             //pin->changeCallBack( this, !newDirec ); // CallBack only on Inputs
