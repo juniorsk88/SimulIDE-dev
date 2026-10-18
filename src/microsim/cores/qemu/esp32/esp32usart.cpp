@@ -41,7 +41,20 @@ void Esp32Usart::reset()
 void Esp32Usart::connected( bool c )
 {
     enable( c );
-    if( c ) m_sender->getPin()->setPinMode( output );
+    if( c ){
+        m_sender->getPin()->setPinMode( output );
+        // The Rx pin pointer may have changed after the receiver was enabled (Tx pad
+        // connected first): re-arm the receiver so it listens on the current Rx pin.
+        m_receiver->enable( 0 );
+        m_receiver->enable( 1 );
+    }
+}
+
+void Esp32Usart::byteReceived( uint8_t data ) // Rx: frame received from the circuit -> RX FIFO
+{
+    QemuUsart::byteReceived( data );           // monitor
+    if( m_rxFifo.size() >= 128 ) return;       // RX FIFO overflow: drop
+    m_rxFifo.enqueue( data );
 }
 
 void Esp32Usart::writeRegister()
@@ -113,6 +126,12 @@ void Esp32Usart::readRegister()
     switch( offset ) {
     case 0x00:                    // UART_FIFO:
         if( m_rxFifo.size() ) value = m_rxFifo.dequeue();
+        break;
+    case 0x1C:                    // UART_STATUS: RXFIFO_CNT bits 0-7 (TXFIFO_CNT kept 0, Tx is never blocked)
+        value = m_rxFifo.size() & 0xFF;
+        break;
+    case 0x60:                    // UART_MEM_RX_STATUS: RD_ADDR=0 (bits 2-12), WR_ADDR=count (bits 13-23)
+        value = ( m_rxFifo.size() & 0x7F ) << 13;
         break;
 
     //case 0x04: value = m_intRaw;  break; // UART_INT_RAW: RO

@@ -24,6 +24,7 @@ class Esp32Usart : public QemuUsart
         void connected( bool c ) override;
 
         void frameSent( uint8_t data ) override;
+        void byteReceived( uint8_t data ) override;
 
     private:
         void writeRegister() override;
