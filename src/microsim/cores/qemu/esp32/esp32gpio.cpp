@@ -136,6 +136,14 @@ uint32_t Esp32Gpio::strapMode()
 {
     uint32_t GPIO = readPort( 0 ); // Pins 0-32
 
+    // Unconnected strapping pins take the chip's reset-default internal pulls
+    // (GPIO0, GPIO5, GPIO15 pull-up; GPIO2, GPIO4, GPIO12 pull-down).
+    // Without this a floating GPIO0 reads 0 and QEMU boots in download mode.
+    for( uint8_t i : { 0, 5, 15 } )
+        if( m_espPad[i] && !m_espPad[i]->isConnected() ) GPIO |= (1 << i);
+    for( uint8_t i : { 2, 4, 12 } )
+        if( m_espPad[i] && !m_espPad[i]->isConnected() ) GPIO &= ~(1 << i);
+
     // GPIO_STRAP uses a different bit order than the physical GPIO numbers.
     m_strapMode = (((GPIO >> 5)  & 1) << 0)  // GPIO5
                 | (((GPIO >> 15) & 1) << 1)  // GPIO15 / MTDO
